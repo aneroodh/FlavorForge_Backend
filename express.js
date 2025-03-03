@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import Recipe from "./models/recipe.js";
 import dotenv from 'dotenv';
 import { clerkMiddleware, requireAuth } from "@clerk/express";
+import axios from 'axios';
 
 dotenv.config();
 
@@ -49,6 +50,48 @@ function extractJsonFromResponse(response) {
   }
 }
 
+// Function to fetch nutritional data from Spoonacular
+const getNutritionalData = async (recipe) => {
+  try {
+    const response = await axios.post(
+      "https://api.spoonacular.com/recipes/analyze",
+      {
+        title: recipe.title,
+        servings: recipe.servings || 1,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.SPOONACULAR_API_KEY,
+        },
+      }
+    );
+
+    // Log the full API response
+    console.log("Spoonacular API response:", response.data);
+
+    // Check if nutrition data exists
+    if (!response.data.nutrition) {
+      console.error("Nutrition data is missing in the response");
+      return null;
+    }
+
+    const nutrients = response.data.nutrition.nutrients;
+    return {
+      calories: nutrients.find((n) => n.name === "Calories")?.amount || 0,
+      protein: nutrients.find((n) => n.name === "Protein")?.amount || 0,
+      carbs: nutrients.find((n) => n.name === "Carbohydrates")?.amount || 0,
+      fats: nutrients.find((n) => n.name === "Fat")?.amount || 0,
+    };
+  } catch (error) {
+    // Log detailed error info
+    console.error("Error fetching nutritional data:", error.response ? error.response.data : error.message);
+    return null;
+  }
+};
+
 // GET endpoint for testing
 app.get("/", (req, res) => {
   res.json("hello aneroodh");
@@ -66,10 +109,11 @@ app.post("/generate-recipes", async (req, res) => {
       return res.status(400).json({ error: "Preferences must be an array of strings" });
     }
 
-    let prompt = "Generate recipe suggestions";
+    let prompt = "Generate recipe suggestions with detailed instructions";
     if (ingredients.length > 0) prompt += ` using the following ingredients: ${ingredients.join(", ")}`;
     if (preferences.length > 0) prompt += `. The recipes should be ${preferences.join(" and ")}`;
-    prompt += `. Return only a JSON array of objects, each containing 'title' (string), 'description' (string), 'ingredients' (array of strings), and 'instructions' (string). Do not include any additional text.`;
+    prompt += `. Return only a JSON array of objects, each containing 'title' (string), 'description' (string), 
+    'ingredients and their quantity per one serving' (array of strings), and 'instructions' (string). Do not include any additional text.`;
 
     const response = await getGroqChatCompletion(prompt);
     const jsonString = extractJsonFromResponse(response);
@@ -133,6 +177,50 @@ app.get("/saved-recipes", requireAuth(), async (req, res) => {
     } catch (error) {
       console.error("Error deleting recipe:", error);
       res.status(500).json({ error: "Failed to delete recipe" });
+    }
+  });
+
+  // New endpoint to get or fetch nutritional info
+  app.get("/get-nutrition/:recipeId", requireAuth(), async (req, res) => {
+    try {
+      const { recipeId } = req.params;
+      const userId = req.auth.userId;
+  
+      // Fetch the recipe from MongoDB
+      const recipe = await Recipe.findOne({ _id: recipeId, userId });
+      if (!recipe) {
+        return res.status(404).json({ error: "Recipe not found" });
+      }
+  
+      // Log the nutrition value for debugging
+      console.log('Recipe nutrition:', recipe.nutrition);
+  
+      // Check if nutrition exists and has non-zero values
+      if (
+        recipe.nutrition &&
+        Object.keys(recipe.nutrition).length > 0 &&
+        Object.values(recipe.nutrition).some(val => val > 0)
+      ) {
+        console.log('Returning existing nutrition:', recipe.nutrition);
+        return res.json({ recipe });
+      }
+  
+      // If nutrition is missing or empty, fetch new data
+      console.log('Fetching new nutrition data');
+      const nutrition = await getNutritionalData(recipe); // Assume this function fetches data from an API
+      if (!nutrition) {
+        return res.status(500).json({ error: "Failed to fetch nutritional data" });
+      }
+  
+      // Update the recipe with new nutrition data
+      recipe.nutrition = nutrition;
+      await recipe.save();
+  
+      console.log('Nutrition saved:', nutrition);
+      res.json({ recipe });
+    } catch (error) {
+      console.error("Error in /get-nutrition:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 

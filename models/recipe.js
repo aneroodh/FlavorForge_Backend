@@ -20,6 +20,19 @@ const recipeSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  servings: {
+    type: Number,
+    default: 1 
+  },
+  nutrition: {
+    type: {
+      calories: Number,
+      protein: Number,
+      carbs: Number,
+      fats: Number,
+    },
+    default: undefined
+  },
   userId: {
      type: String,
      required: true 
