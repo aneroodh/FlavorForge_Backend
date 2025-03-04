@@ -66,6 +66,10 @@ const getNutritionalData = async (recipe) => {
           "Content-Type": "application/json",
           "x-api-key": process.env.SPOONACULAR_API_KEY,
         },
+        params: {
+          includeNutrition: true,    // command to request nutritional data
+          // includeTaste: true
+        }
       }
     );
 
@@ -84,6 +88,7 @@ const getNutritionalData = async (recipe) => {
       protein: nutrients.find((n) => n.name === "Protein")?.amount || 0,
       carbs: nutrients.find((n) => n.name === "Carbohydrates")?.amount || 0,
       fats: nutrients.find((n) => n.name === "Fat")?.amount || 0,
+      cholesterol: nutrients.find((n) => n.name === "Cholesterol")?.amount || 0,
     };
   } catch (error) {
     // Log detailed error info
