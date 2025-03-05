@@ -92,6 +92,10 @@ const getNutritionalData = async (recipe) => {
     };
   } catch (error) {
     // Log detailed error info
+    if (error.response && error.response.status === 429) {
+      console.error("Rate limit exceeded.");
+      throw new Error("API rate limit exceeded. Please try again later.");
+    }
     console.error("Error fetching nutritional data:", error.response ? error.response.data : error.message);
     return null;
   }
@@ -119,6 +123,7 @@ app.post("/generate-recipes", async (req, res) => {
     if (preferences.length > 0) prompt += `. The recipes should be ${preferences.join(" and ")}`;
     prompt += `. Return only a JSON array of objects, each containing 'title' (string), 'description' (string), 
     'ingredients and their quantity per one serving' (array of strings), and 'instructions' (string). Do not include any additional text.`;
+    prompt += `. The recipes should be easy to prepare, suitable for home cooking, and include precise ingredient quantities.`;
 
     const response = await getGroqChatCompletion(prompt);
     const jsonString = extractJsonFromResponse(response);

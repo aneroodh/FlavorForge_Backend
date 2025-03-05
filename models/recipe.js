@@ -14,7 +14,11 @@ const recipeSchema = new mongoose.Schema({
   },
   ingredients: [{
     type: String,
-    required: true
+    required: true,
+    validate: {
+      validator: (array) => array.length > 0,
+      message: 'Ingredients cannot be empty',
+    },
   }],
   instructions: {
     type: String,
