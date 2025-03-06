@@ -37,6 +37,14 @@ const recipeSchema = new mongoose.Schema({
     },
     default: undefined
   },
+  tags: {
+    type: [String],
+    default: []
+  },
+  favourite: {
+    type: Boolean,
+    default: false
+  },
   userId: {
      type: String,
      required: true 

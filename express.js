@@ -109,7 +109,7 @@ app.get("/", (req, res) => {
 // POST endpoint to generate and save recipes
 app.post("/generate-recipes", async (req, res) => {
   try {
-    const { ingredients, preferences } = req.body;
+    const { ingredients, preferences, mealType } = req.body;
 
     if (!Array.isArray(ingredients) || !ingredients.every(i => typeof i === "string")) {
       return res.status(400).json({ error: "Ingredients must be an array of strings" });
@@ -120,10 +120,11 @@ app.post("/generate-recipes", async (req, res) => {
 
     let prompt = "Generate recipe suggestions with detailed instructions";
     if (ingredients.length > 0) prompt += ` using the following ingredients: ${ingredients.join(", ")}`;
-    if (preferences.length > 0) prompt += `. The recipes should be ${preferences.join(" and ")}`;
+    if (preferences.length > 0) prompt += `. The recipes should be suitable for the following dietary preferences: ${preferences.join(", ")}`;
+    if (mealType) prompt += `. The recipes should be suitable for ${mealType}`;
     prompt += `. Return only a JSON array of objects, each containing 'title' (string), 'description' (string), 
-    'ingredients and their quantity per one serving' (array of strings), and 'instructions' (string). Do not include any additional text.`;
-    prompt += `. The recipes should be easy to prepare, suitable for home cooking, and include precise ingredient quantities.`;
+    'ingredients and their quantity per one serving' (array of strings), 'instructions' (string), and 'tags' (array of strings based on dietary preferences: 'Vegan', 'Vegetarian', 'Non-Vegetarian', 'Gluten-free', 'Dairy-free', 'Nut-free' and the meal type: 'Breakfast', 'Lunch', 'Dinner', 'Snack' , include given tags only ). Do not include any additional text. `;
+    prompt += `The recipes should be easy to prepare, suitable for home cooking, and include precise ingredient quantities.`;
 
     const response = await getGroqChatCompletion(prompt);
     const jsonString = extractJsonFromResponse(response);
@@ -131,7 +132,7 @@ app.post("/generate-recipes", async (req, res) => {
 
     if (!Array.isArray(recipes)) throw new Error("Response is not an array");
 
-    res.json({ recipes});
+    res.json({ recipes });
   } catch (error) {
     console.error("Error in /generate-recipes:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -141,7 +142,7 @@ app.post("/generate-recipes", async (req, res) => {
 // POST endpoint to save a recipe
 app.post("/save-recipe", requireAuth(), async (req, res) => {
     try {
-      const { title, description, ingredients, instructions } = req.body;
+      const { title, description, ingredients, instructions, tags } = req.body;
       const userId = req.auth.userId;
   
       if (!title || !description || !Array.isArray(ingredients) || !instructions) {
@@ -153,6 +154,7 @@ app.post("/save-recipe", requireAuth(), async (req, res) => {
         description,
         ingredients,
         instructions,
+        tags,
         userId,
       });
   
@@ -194,20 +196,27 @@ app.get("/saved-recipes", requireAuth(), async (req, res) => {
     try {
       const { id } = req.params;
       const userId = req.auth.userId;
-      const { title, description, ingredients, instructions } = req.body;
+      const { title, description, ingredients, instructions, favourite } = req.body;
   
-      // Find the recipe by ID and userId to ensure ownership
-      const recipe = await Recipe.findOne({ _id: id, userId });
+      // Prepare the update object with only provided fields
+      const updateData = {};
+      if (title) updateData.title = title;
+      if (description) updateData.description = description;
+      if (ingredients) updateData.ingredients = ingredients;
+      if (instructions) updateData.instructions = instructions;
+      if (favourite !== undefined) updateData.favourite = favourite;
+  
+      // Update the recipe in the database
+      const recipe = await Recipe.findOneAndUpdate(
+        { _id: id, userId },
+        { $set: updateData },
+        { new: true } // Return the updated document
+      );
+  
       if (!recipe) {
         return res.status(404).json({ error: 'Recipe not found or not authorized' });
       }
-      
-      recipe.title = title || recipe.title;
-      recipe.description = description || recipe.description;
-      recipe.ingredients = ingredients || recipe.ingredients;
-      recipe.instructions = instructions || recipe.instructions;
   
-      await recipe.save();
       res.json({ message: 'Recipe updated successfully', recipe });
     } catch (error) {
       console.error('Error updating recipe:', error);
