@@ -190,6 +190,31 @@ app.get("/saved-recipes", requireAuth(), async (req, res) => {
     }
   });
 
+  app.put('/update-recipe/:id', requireAuth(), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.auth.userId;
+      const { title, description, ingredients, instructions } = req.body;
+  
+      // Find the recipe by ID and userId to ensure ownership
+      const recipe = await Recipe.findOne({ _id: id, userId });
+      if (!recipe) {
+        return res.status(404).json({ error: 'Recipe not found or not authorized' });
+      }
+      
+      recipe.title = title || recipe.title;
+      recipe.description = description || recipe.description;
+      recipe.ingredients = ingredients || recipe.ingredients;
+      recipe.instructions = instructions || recipe.instructions;
+  
+      await recipe.save();
+      res.json({ message: 'Recipe updated successfully', recipe });
+    } catch (error) {
+      console.error('Error updating recipe:', error);
+      res.status(500).json({ error: 'Failed to update recipe' });
+    }
+  });
+
   // New endpoint to get or fetch nutritional info
   app.get("/get-nutrition/:recipeId", requireAuth(), async (req, res) => {
     try {
