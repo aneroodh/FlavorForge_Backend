@@ -103,11 +103,11 @@ const getNutritionalData = async (recipe) => {
 
 // GET endpoint for testing
 app.get("/", (req, res) => {
-  res.json("hello aneroodh");
+  res.json("Welcome to FlavorForge Backend");
 });
 
 // POST endpoint to generate and save recipes
-app.post("/generate-recipes", async (req, res) => {
+app.post("https://flavor-forge-backend.vercel.app/generate-recipes", async (req, res) => {
   try {
     const { ingredients, preferences, mealType } = req.body;
 
@@ -140,7 +140,7 @@ app.post("/generate-recipes", async (req, res) => {
 });
 
 // POST endpoint to save a recipe
-app.post("/save-recipe", requireAuth(), async (req, res) => {
+app.post("https://flavor-forge-backend.vercel.app/save-recipe", requireAuth(), async (req, res) => {
     try {
       const { title, description, ingredients, instructions, tags } = req.body;
       const userId = req.auth.userId;
@@ -168,7 +168,7 @@ app.post("/save-recipe", requireAuth(), async (req, res) => {
 
 
 // GET endpoint to fetch user-specific recipes
-app.get("/saved-recipes", requireAuth(), async (req, res) => {
+app.get("https://flavor-forge-backend.vercel.app/saved-recipes", requireAuth(), async (req, res) => {
     try {
       const userId = req.auth.userId;
       const recipes = await Recipe.find({ userId });
@@ -179,7 +179,7 @@ app.get("/saved-recipes", requireAuth(), async (req, res) => {
     }
   });
 
-  app.delete("/saved-recipes/:id", requireAuth(), async (req, res) => {
+  app.delete("https://flavor-forge-backend.vercel.app/saved-recipes/:id", requireAuth(), async (req, res) => {
     try {
       const { id } = req.params;
       const userId = req.auth.userId;
@@ -192,7 +192,7 @@ app.get("/saved-recipes", requireAuth(), async (req, res) => {
     }
   });
 
-  app.put('/update-recipe/:id', requireAuth(), async (req, res) => {
+  app.put('https://flavor-forge-backend.vercel.app/update-recipe/:id', requireAuth(), async (req, res) => {
     try {
       const { id } = req.params;
       const userId = req.auth.userId;
